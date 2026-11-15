@@ -1,0 +1,90 @@
+--- a/client/SDL/SDL3/sdl_context.cpp
++++ b/client/SDL/SDL3/sdl_context.cpp
+@@ -343,8 +343,14 @@
+ 	context->update->SetKeyboardIndicators = sdlInput::keyboard_set_indicators;
+ 	context->update->SetKeyboardImeStatus = sdlInput::keyboard_set_ime_status;
+ 
++#if defined(__APPLE__)
++	/* mac_rdp: Cocoa only allows native full screen Spaces for resizable windows */
++	if (!sdl->setResizeable(freerdp_settings_get_bool(context->settings, FreeRDP_Fullscreen)))
++		return FALSE;
++#else
+ 	if (!sdl->setResizeable(false))
+ 		return FALSE;
++#endif
+ 	if (!sdl->setFullscreen(freerdp_settings_get_bool(context->settings, FreeRDP_Fullscreen) ||
+ 	                            freerdp_settings_get_bool(context->settings, FreeRDP_UseMultimon),
+ 	                        true))
+@@ -474,7 +480,9 @@
+ 		if (freerdp_settings_get_bool(settings, FreeRDP_Fullscreen) &&
+ 		    !freerdp_settings_get_bool(settings, FreeRDP_UseMultimon))
+ 		{
++#if !defined(__APPLE__) /* mac_rdp: enter native full screen (own Space) after creation instead */
+ 			flags |= SDL_WINDOW_FULLSCREEN;
++#endif
+ 		}
+ 
+ 		if (freerdp_settings_get_bool(settings, FreeRDP_UseMultimon))
+--- a/client/SDL/SDL3/sdl_window.cpp
++++ b/client/SDL/SDL3/sdl_window.cpp
+@@ -22,6 +22,10 @@
+ #include <cmath>
+ 
+ #include "sdl_window.hpp"
++#if defined(__APPLE__)
++extern "C" void* sel_registerName(const char*);
++extern "C" void objc_msgSend(void);
++#endif
+ #include "sdl_utils.hpp"
+ 
+ #include <freerdp/utils/string.h>
+@@ -234,7 +238,37 @@
+ 		SDL_Rect rect = {};
+ 		std::ignore = SDL_GetDisplayBounds(_displayID, &rect);
+ 		std::ignore = SDL_SetWindowPosition(_window, rect.x, rect.y);
++	}
++#if defined(__APPLE__)
++	/* mac_rdp: use native macOS full screen (own Space, swipe between full screen apps) */
++	auto* nswin = static_cast<void*>(SDL_GetPointerProperty(
++	    SDL_GetWindowProperties(_window), SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr));
++	if (nswin)
++	{
++		using GetU = unsigned long (*)(void*, void*);
++		using SetU = void (*)(void*, void*, unsigned long);
++		using Toggle = void (*)(void*, void*, void*);
++		auto send = reinterpret_cast<void*>(objc_msgSend);
++		const unsigned long behavior = reinterpret_cast<GetU>(send)(nswin, sel_registerName("collectionBehavior"));
++		reinterpret_cast<SetU>(send)(nswin, sel_registerName("setCollectionBehavior:"),
++		                             (behavior | (1UL << 7)) & ~(1UL << 9)); /* FullScreenPrimary, not Auxiliary */
++		const unsigned long style = reinterpret_cast<GetU>(send)(nswin, sel_registerName("styleMask"));
++		reinterpret_cast<SetU>(send)(nswin, sel_registerName("setStyleMask:"),
++		                             style | 1UL | 2UL | 4UL | 8UL); /* titled, closable, miniaturizable, resizable */
++		const bool isFs = (reinterpret_cast<GetU>(send)(nswin, sel_registerName("styleMask")) & (1UL << 14)) != 0;
++		SDL_Log("mac_rdp: native fullscreen request enter=%d isFs=%d", enter ? 1 : 0, isFs ? 1 : 0);
++		if (isFs != enter)
++		{
++			/* Run on the next run-loop turns, once the window is on screen; an immediate
++			 * toggle on a window that is not visible yet is ignored by AppKit. */
++			using Delay = void (*)(void*, void*, void*, void*, double);
++			reinterpret_cast<Delay>(send)(nswin, sel_registerName("performSelector:withObject:afterDelay:"),
++			                              sel_registerName("toggleFullScreen:"), nullptr, 0.5);
++		}
++		(void)sizeof(Toggle);
++		return;
+ 	}
++#endif
+ 	std::ignore = SDL_SetWindowFullscreen(_window, enter);
+ 	std::ignore = SDL_SyncWindow(_window);
+ }
+--- a/client/SDL/SDL3/CMakeLists.txt
++++ b/client/SDL/SDL3/CMakeLists.txt
+@@ -157,6 +157,9 @@
+   list(APPEND LIBS ${X11_LIBRARIES})
+ endif()
+ 
++if(APPLE)
++  list(APPEND LIBS objc)
++endif()
+ target_link_libraries(${MODULE_NAME} PRIVATE ${LIBS})
+ 
+ if(EMSCRIPTEN)
