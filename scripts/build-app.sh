@@ -15,7 +15,14 @@ if [ -z "${SIGN_IDENTITY:-}" ]; then
                     | head -1 | awk '{print $2}' || true)"
   SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 fi
-sign() { codesign --force --timestamp=none --sign "$SIGN_IDENTITY" "$@" >/dev/null; }
+# RELEASE=1 (set by scripts/release.sh) adds the hardened runtime and a secure timestamp, which
+# notarization requires. Local builds skip the timestamp so they work offline and build faster.
+if [ "${RELEASE:-0}" = 1 ] && [ "$SIGN_IDENTITY" != "-" ]; then
+  SIGN_FLAGS=(--options runtime --timestamp)
+else
+  SIGN_FLAGS=(--timestamp=none)
+fi
+sign() { codesign --force "${SIGN_FLAGS[@]}" --sign "$SIGN_IDENTITY" "$@" >/dev/null 2>&1; }
 
 cd "$ROOT"
 echo "==> Compiling"
@@ -71,6 +78,8 @@ if [ -x "$ROOT/build/freerdp/bin/sdl-freerdp" ]; then
   mkdir -p "$HELPER/Contents/MacOS"
   cp "$ROOT/build/freerdp/bin/sdl-freerdp" "$HELPER/Contents/MacOS/sdl-freerdp"
   cp -R "$ROOT/build/freerdp/lib" "$HELPER/Contents/lib"
+  echo "==> Bundling Homebrew libraries (ffmpeg, SDL3, OpenSSL, …)"
+  "$ROOT/scripts/bundle-dylibs.sh" "$HELPER/Contents/lib" "$HELPER/Contents/MacOS/sdl-freerdp"
   cat > "$HELPER/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -92,8 +101,8 @@ EOF
   if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
     mkdir -p "$HELPER/Contents/Resources"; cp "$ROOT/Resources/AppIcon.icns" "$HELPER/Contents/Resources/"
   fi
-  sign "$HELPER/Contents/lib/"*.dylib
-  sign --identifier io.github.macrdp.session "$HELPER"
+  for lib in "$HELPER/Contents/lib/"*.dylib; do [ -L "$lib" ] || sign "$lib"; done
+  sign --identifier io.github.macrdp.session --entitlements "$ROOT/Resources/Session.entitlements" "$HELPER"
 else
   echo "!!  build/freerdp not found: the app will fall back to Homebrew's sdl-freerdp (no UDP)."
 fi

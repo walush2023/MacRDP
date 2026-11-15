@@ -46,7 +46,25 @@ open build/MacRDP.app
 
 `build-app.sh` 會先跑 `MacRDP --self-test`（指令組合與 `.rdp` 解析的檢查）。
 
-FreeRDP 的動態函式庫仍然連結到 Homebrew 的 `ffmpeg`、`sdl3`、`openssl@4` 等，所以執行的電腦也需要用 Homebrew 裝好這些套件（`build-freerdp.sh` 會自動安裝）。
+`build-app.sh` 會把 FreeRDP 用到的 Homebrew 函式庫（ffmpeg、SDL3、OpenSSL 等，約 46 個）一起複製進 App，並把載入路徑改成 App 內部（[`scripts/bundle-dylibs.sh`](scripts/bundle-dylibs.sh)）。所以建好的 App 可以在沒有 Homebrew 的 Mac 上執行；只有「建置」需要 Homebrew。
+
+## 發佈（簽章 + 公證 + DMG）
+
+```bash
+scripts/release.sh
+```
+
+產生 `build/MacRDP-<版本>.dmg`：用 Developer ID 簽章並開啟 hardened runtime，送 Apple 公證後把公證結果釘進 DMG（staple）。下載的人第一次打開不會被 Gatekeeper 擋下。
+
+需要：
+1. 鑰匙圈裡有「Developer ID Application」憑證。
+2. 先存一次公證用的帳號（App 專用密碼在 [account.apple.com](https://account.apple.com) →「登入與安全性」建立）：
+
+   ```bash
+   xcrun notarytool store-credentials macrdp-notary --apple-id <Apple ID> --team-id <Team ID> --password <App 專用密碼>
+   ```
+
+`SKIP_NOTARIZE=1 scripts/release.sh` 只簽章、不公證；`NOTARY_PROFILE=<名稱>` 可以換成其他已存的帳號設定。版本號在 `VERSION` 檔。
 
 第一次連線時，macOS 會詢問是否允許 MacRDP 存取區域網路，請按「允許」。如果按了拒絕，到「系統設定 → 隱私權與安全性 → 區域網路」把 MacRDP 打開。
 
@@ -116,8 +134,8 @@ Sources/MacRDP/
   Views/                     主視窗、連線設定、密碼輸入
   SelfTest.swift             `--self-test` 檢查
 Resources/                   App 圖示（AppIcon.icns，用 scripts/make-icon.swift 從 icon-source.png 產生）
-patches/                     FreeRDP 補丁（原生全螢幕）
-scripts/                     build-freerdp.sh、build-app.sh、make-icon.swift
+patches/                     FreeRDP 補丁（原生全螢幕、不閃爍的啟動）
+scripts/                     build-freerdp.sh、build-app.sh、bundle-dylibs.sh、release.sh、make-icon.swift
 tools/                       windows-setup.ps1、fps-test.html
 ```
 
@@ -127,7 +145,6 @@ tools/                       windows-setup.ps1、fps-test.html
 
 - Azure Virtual Desktop / Windows 365 的「工作區」訂閱（需要 Microsoft 帳號登入流程）
 - 攝影機重新導向、交換滑鼠左右鍵（FreeRDP 在 macOS 上沒有對應功能）
-- 把 FreeRDP 的 Homebrew 相依套件完整打包進 App（目前需要 Homebrew）
 
 ## 授權
 
