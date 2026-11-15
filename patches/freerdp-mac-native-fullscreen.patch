@@ -15,7 +15,24 @@
  	if (!sdl->setFullscreen(freerdp_settings_get_bool(context->settings, FreeRDP_Fullscreen) ||
  	                            freerdp_settings_get_bool(context->settings, FreeRDP_UseMultimon),
  	                        true))
-@@ -474,7 +480,9 @@
+@@ -468,13 +474,26 @@
+ 			else
+ 				h = freerdp_settings_get_uint32(settings, FreeRDP_DesktopHeight);
+ 		}
++#if defined(__APPLE__)
++		else if (freerdp_settings_get_bool(settings, FreeRDP_Fullscreen) &&
++		         !freerdp_settings_get_bool(settings, FreeRDP_UseMultimon))
++		{
++			/* mac_rdp: start as a normal window; native full screen animates it to the whole
++			 * display. A display-sized window would first look full screen, shrink back when the
++			 * animation starts, then grow again. */
++			w = w * 3 / 4;
++			h = h * 3 / 4;
++		}
++#endif
+ 
+ 		Uint32 flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
+ 
  		if (freerdp_settings_get_bool(settings, FreeRDP_Fullscreen) &&
  		    !freerdp_settings_get_bool(settings, FreeRDP_UseMultimon))
  		{
@@ -75,6 +92,32 @@
 +#endif
  	std::ignore = SDL_SetWindowFullscreen(_window, enter);
  	std::ignore = SDL_SyncWindow(_window);
+ }
+@@ -839,7 +873,13 @@
+ 	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_HIGH_PIXEL_DENSITY_BOOLEAN, true);
+ 	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, false);
+ 	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, true);
++#if defined(__APPLE__)
++	/* mac_rdp: measure with a hidden display-sized window; a visible full screen probe flashes
++	 * on screen before the session window appears. */
++	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_HIDDEN_BOOLEAN, true);
++#else
+ 	SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_HIDDEN_BOOLEAN, false);
++#endif
+ 
+ 	auto window = SDL_CreateWindowWithProperties(props);
+ 	SDL_DestroyProperties(props);
+@@ -852,7 +892,11 @@
+ 		SDL_Rect rect = {};
+ 		std::ignore = SDL_GetDisplayBounds(id, &rect);
+ 		std::ignore = SDL_SetWindowPosition(window, rect.x, rect.y);
++#if defined(__APPLE__)
++		std::ignore = SDL_SetWindowSize(window, rect.w, rect.h);
++#else
+ 		std::ignore = SDL_SetWindowFullscreen(window, true);
++#endif
+ 	}
+ 	return window;
  }
 --- a/client/SDL/SDL3/CMakeLists.txt
 +++ b/client/SDL/SDL3/CMakeLists.txt
