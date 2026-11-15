@@ -1,151 +1,156 @@
 # MacRDP
 
-macOS 原生的遠端桌面（RDP）用戶端，參考 Microsoft「Windows App」的介面與設定，額外開放 **UDP 傳輸**、**H.264 AVC444** 與**不限幀率**，在區域網路上可以跑到 60 fps 以上。
+**An open-source alternative to Microsoft's Windows App for macOS, tuned for high frame-rate Remote Desktop.**
 
-連線核心是 [FreeRDP 3](https://github.com/FreeRDP/FreeRDP)，以開啟 UDP（MS-RDPEUDP）的方式自行編譯，並加上「macOS 原生全螢幕」補丁。
+English | [繁體中文](README.zh-TW.md)
 
-> A native macOS Remote Desktop client modelled on Microsoft's Windows App, with saved connections, every per-PC setting, UDP transport, H.264 AVC444 and uncapped frame rate. Built on a patched FreeRDP 3. UI is in Traditional Chinese.
+MacRDP looks and works like Windows App (saved PCs, groups, the same per-PC settings), but it exposes the performance options Windows App keeps hidden: **UDP transport**, **H.264 AVC444**, and **uncapped frame rate**. Together with a few Windows-side tweaks, a 1080p desktop that Windows caps at about 30 fps runs at **75+ fps** on a LAN.
 
-## 功能
+## How it differs from Windows App
 
-- **儲存多組連線**：格狀或清單檢視、群組、搜尋、「最近使用」、複製、刪除
-- **每台電腦的設定**（對應 Windows App 的「新增電腦」對話框）
+| | Windows App (Microsoft) | MacRDP |
+|---|---|---|
+| Transport | Chosen automatically | **UDP preferred or TCP only**, per PC |
+| Graphics codec | Chosen automatically | **AVC444 / AVC420 / RemoteFX / Progressive / legacy**, per PC |
+| Frame pacing | Waits for each frame to be acknowledged | **Optional uncapped frame rate** (`frame-ack:0`) |
+| Windows-side tuning | Not documented | **One-click script** to lift the 30 fps cap and turn on H.264, UDP and GPU encoding |
+| Clipboard | On or off | **Separate direction for text/images and for files** (both / to remote / to Mac / off) |
+| Full screen | Native | Native: every session gets its own Space, so you can swipe between them |
+| Extras | — | `.rdp` import/export, `--connect` command line (Shortcuts, Alfred, Raycast), custom FreeRDP arguments |
+| Source | Closed | **Open source** (Apache-2.0), built on [FreeRDP 3](https://github.com/FreeRDP/FreeRDP) |
+| Azure Virtual Desktop / Windows 365 | Yes | **Not supported**: MacRDP connects to PCs directly or through an RD Gateway |
+| Camera redirection, swap mouse buttons | Yes | **Not supported** (FreeRDP has no macOS support for them) |
+| UI language | Many | Traditional Chinese for now |
 
-| 分頁 | 設定 |
+### Measured
+
+1920×1080, a full-screen animation on Windows 11 (QEMU VM, no GPU), Mac mini on wired LAN:
+
+| Setup | Average fps | Codec |
+|---|---|---|
+| Windows defaults | 32 | ClearCodec |
+| Windows tweaks applied, TCP | 78 | AVC444 |
+| Windows tweaks applied, UDP | 75 | AVC444 |
+| Windows tweaks applied, UDP through MacRDP's local relay (default) | 72 | AVC444 |
+
+On a sub-millisecond LAN, UDP and TCP perform about the same. UDP helps on links with latency or packet loss, such as Wi-Fi or connecting from outside your home.
+
+## Features
+
+- **Saved PCs**: grid or list view, groups, search, recently used, duplicate, delete
+- **Per-PC settings**, following Windows App's "Add PC" dialog:
+
+| Tab | Settings |
 |---|---|
-| 一般 | 主機 / IP、埠號、易記名稱、群組、使用者名稱、網域、密碼（存在鑰匙圈）、自動重新連線、系統管理工作階段 |
-| 顯示 | 解析度（與顯示器相同 / 與視窗相同 / 常用解析度 / 自訂）、視窗大小改變時更新解析度、顯示比例、全螢幕、使用所有顯示器、符合視窗大小（縮放）、色彩品質 |
-| 裝置與音訊 | 剪貼簿（文字與圖片、檔案，可分別設為雙向 / 只到遠端 / 只到 Mac / 關閉）、印表機、智慧卡、麥克風、聲音播放位置 |
-| 資料夾 | 重新導向任意資料夾、分享家目錄 |
-| 效能 | UDP 優先或只用 TCP、影像編碼（AVC444 / AVC420 / RemoteFX…）、不限幀率、網路類型、桌布 / 佈景主題 / ClearType / 動畫等視覺效果 |
-| 閘道 | RD Gateway：主機、埠號、獨立帳號密碼、區域網路略過閘道 |
-| 進階 | 憑證政策、安全性通訊協定（NLA / TLS / RDP）、RemoteApp、替代殼層、負載平衡資訊、鍵盤配置、任意 FreeRDP 參數 |
+| General | Host / IP, port, friendly name, group, user name, domain, password (in Keychain), reconnect automatically, admin session |
+| Display | Resolution (match display / match window / presets / custom), update resolution on resize, scale, full screen, use all monitors, fit session to window, color quality |
+| Devices & Audio | Clipboard (text/images and files, each both / to remote / to Mac / off), printers, smart cards, microphone, where sound plays |
+| Folders | Redirect any folder, share your home folder |
+| Performance | UDP preferred or TCP only, codec, uncapped frame rate, network type, wallpaper / themes / ClearType / animations |
+| Gateway | RD Gateway host, port, separate credentials, bypass for local addresses |
+| Advanced | Certificate policy, security protocol (NLA / TLS / RDP), RemoteApp, alternate shell, load-balance info, keyboard layout, extra FreeRDP arguments |
 
-- **macOS 原生全螢幕**：每個工作階段有自己的 Space，可以用四指滑動或 `Control-←/→` 在多個全螢幕視窗間切換；`Control-Option-Return` 切換全螢幕
-- **匯入 / 匯出 `.rdp` 檔**，也可以在 Finder 直接打開 `.rdp`
-- 密碼只存在 macOS 鑰匙圈，經由 stdin 傳給 FreeRDP，不會出現在設定檔或 `ps` 裡
-- 指令列：`MacRDP.app/Contents/MacOS/MacRDP --connect "名稱或 IP"` 直接連線（可接 Shortcuts、Alfred、Raycast）
+- Passwords stay in the macOS Keychain and reach FreeRDP through stdin, never in a file or the process list
+- Open `.rdp` files from Finder, or import and export them
+- `MacRDP.app/Contents/MacOS/MacRDP --connect "<name or host>"` connects straight away
 
-## 需求
+## Download
 
-- macOS 14 以上、Apple Silicon
-- Xcode Command Line Tools（`xcode-select --install`），不需要完整 Xcode
-- [Homebrew](https://brew.sh)
+Get the notarized DMG from [Releases](https://github.com/walush2023/MacRDP/releases). It runs on Apple Silicon Macs with macOS 14 or later; Homebrew is not needed.
 
-## 建置
+The first time you connect to a PC on your network, macOS asks whether MacRDP may access the local network. Click **Allow**. If you denied it, turn MacRDP on in System Settings → Privacy & Security → Local Network.
 
-```bash
-git clone https://github.com/<you>/MacRDP.git
-cd MacRDP
-scripts/build-freerdp.sh   # 編譯 FreeRDP（UDP + 原生全螢幕補丁），約 3–5 分鐘
-scripts/build-app.sh       # 編譯 App 並把 FreeRDP 打包進去
-open build/MacRDP.app
-```
+## Windows setup
 
-`build-app.sh` 會自動用鑰匙圈裡的 Developer ID 或 Apple Development 憑證簽章（也可以用 `SIGN_IDENTITY=<憑證>` 指定）。簽章身分固定，鑰匙圈才會記得「MacRDP 可以讀密碼」；如果找不到憑證就用臨時簽章，每次重新建置後 macOS 都會再問一次鑰匙圈密碼。
+MacRDP uses UDP, AVC444 and an uncapped frame rate by default, but **Windows caps Remote Desktop at about 30 fps and may not use H.264 unless you change it**.
 
-`build-app.sh` 會先跑 `MacRDP --self-test`（指令組合與 `.rdp` 解析的檢查）。
+### One click
 
-`build-app.sh` 會把 FreeRDP 用到的 Homebrew 函式庫（ffmpeg、SDL3、OpenSSL 等，約 46 個）一起複製進 App，並把載入路徑改成 App 內部（[`scripts/bundle-dylibs.sh`](scripts/bundle-dylibs.sh)）。所以建好的 App 可以在沒有 Homebrew 的 Mac 上執行；只有「建置」需要 Homebrew。
-
-## 發佈（簽章 + 公證 + DMG）
-
-```bash
-scripts/release.sh
-```
-
-產生 `build/MacRDP-<版本>.dmg`：用 Developer ID 簽章並開啟 hardened runtime，送 Apple 公證後把公證結果釘進 DMG（staple）。下載的人第一次打開不會被 Gatekeeper 擋下。
-
-需要：
-1. 鑰匙圈裡有「Developer ID Application」憑證。
-2. 先存一次公證用的帳號（App 專用密碼在 [account.apple.com](https://account.apple.com) →「登入與安全性」建立）：
-
-   ```bash
-   xcrun notarytool store-credentials macrdp-notary --apple-id <Apple ID> --team-id <Team ID> --password <App 專用密碼>
-   ```
-
-`SKIP_NOTARIZE=1 scripts/release.sh` 只簽章、不公證；`NOTARY_PROFILE=<名稱>` 可以換成其他已存的帳號設定。版本號在 `VERSION` 檔。
-
-第一次連線時，macOS 會詢問是否允許 MacRDP 存取區域網路，請按「允許」。如果按了拒絕，到「系統設定 → 隱私權與安全性 → 區域網路」把 MacRDP 打開。
-
-> **為什麼要轉送**：macOS 的區域網路權限是依執行檔判斷的，自己編譯的 `sdl-freerdp` 不會跳出詢問，而是直接被擋（錯誤是 `Couldn't get socket ip address`）。所以 MacRDP 預設讓 FreeRDP 連到 `127.0.0.1`，再由 MacRDP 把 TCP 和 UDP 轉送到真正的主機。實測轉送後仍有約 72 fps（直連 75 fps）。可以在「設定」關閉轉送；使用 RD Gateway 時不轉送。
-
-## Windows 端設定
-
-Mac 端預設就會用 UDP、AVC444、不限幀率，但 **Windows 預設會把幀率鎖在 30 fps，也不一定用 H.264**，必須在被連線的 Windows 上調整。
-
-### 一鍵設定
-
-在 Windows 上用**系統管理員**身分開 PowerShell，執行 [`tools/windows-setup.ps1`](tools/windows-setup.ps1)：
+Run [`tools/windows-setup.ps1`](tools/windows-setup.ps1) in PowerShell **as Administrator** on the Windows PC:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\windows-setup.ps1          # 套用
-.\windows-setup.ps1 -Undo    # 還原效能設定
+.\windows-setup.ps1          # apply
+.\windows-setup.ps1 -Undo    # remove the performance tweaks
 ```
 
-執行後**登出 Windows（或重新開機）**，下一次連線才會生效。
+Then **sign out of Windows (or reboot)** so the next session picks the changes up.
 
-### 手動設定（腳本做的事）
+### What the script changes
 
-1. **開啟遠端桌面**：設定 → 系統 → 遠端桌面 → 開啟。需要 Windows 專業版、企業版或教育版，家用版不能當 RDP 主機。
-2. **防火牆**：允許 **TCP 3389** 和 **UDP 3389** 輸入。如果 Windows 在路由器、Docker 或 VM 後面，**UDP 3389 也要轉送**，否則只會走 TCP。
-3. **啟用 UDP**：群組原則 `電腦設定 → 系統管理範本 → Windows 元件 → 遠端桌面服務 → 遠端桌面工作階段主機 → 連線 → 選取 RDP 傳輸通訊協定` = **使用 UDP 和 TCP**
-   （登錄：`HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services\SelectTransport = 0`）
-4. **解除 30 fps 上限**：
-   `HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\DWMFRAMEINTERVAL`（DWORD）= **15**
-5. **優先使用 H.264/AVC 4:4:4**：群組原則 `…遠端桌面工作階段主機 → 遠端工作階段環境 → 為遠端桌面連線排定 H.264/AVC 444 圖形模式的優先順序` = 啟用
-   （登錄：`…\Terminal Services\AVC444ModePreferred = 1`）
-6. **使用 GPU 硬體編碼**（有獨立顯示卡時）：`…遠端工作階段環境 → 設定遠端桌面連線的 H.264/AVC 硬體編碼` = 啟用，以及 `針對所有遠端桌面服務工作階段使用硬體圖形配接器` = 啟用
-   （登錄：`AVCHardwareEncodePreferred = 1`、`bEnumerateHWBeforeSW = 1`）
-7. **帳號**：要登入的帳號必須有密碼。用 Microsoft 帳號登入 Windows 時，使用者名稱填 email，密碼填 Microsoft 帳號密碼（不是 PIN）。
+1. **Turns on Remote Desktop.** Needs Windows Pro, Enterprise or Education; Windows Home cannot host RDP.
+2. **Firewall**: allows inbound **TCP 3389** and **UDP 3389**. If the PC sits behind a router, Docker or a VM, **forward UDP 3389 too**, or sessions fall back to TCP.
+3. **UDP**: Group Policy `Computer Configuration → Administrative Templates → Windows Components → Remote Desktop Services → Remote Desktop Session Host → Connections → Select RDP transport protocols` = **Use both UDP and TCP**
+   (registry: `HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services\SelectTransport = 0`)
+4. **Lifts the 30 fps cap**:
+   `HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\DWMFRAMEINTERVAL` (DWORD) = **15**
+5. **Prefers H.264/AVC 4:4:4**: `… Remote Desktop Session Host → Remote Session Environment → Prioritize H.264/AVC 444 graphics mode for Remote Desktop Connections` = Enabled
+   (registry: `…\Terminal Services\AVC444ModePreferred = 1`)
+6. **GPU encoding** (with a dedicated GPU): `… Remote Session Environment → Configure H.264/AVC hardware encoding for Remote Desktop Connections` = Enabled, and `Use hardware graphics adapters for all Remote Desktop Services sessions` = Enabled
+   (registry: `AVCHardwareEncodePreferred = 1`, `bEnumerateHWBeforeSW = 1`)
 
-### 確認 UDP 有在用
+The account you sign in with needs a password. For a Microsoft account, use its email address and the Microsoft account password, not the PIN.
 
-MacRDP 的連線記錄在 `~/Library/Logs/MacRDP/<連線 ID>.log`（在連線上按右鍵 →「顯示連線記錄」）。看到下面這行就代表畫面走 UDP：
+### Check that UDP is in use
+
+Right-click a PC → Show Connection Log (`~/Library/Logs/MacRDP/<id>.log`). This line means the session runs over UDP:
 
 ```
 UDP multitransport tunnel ready
 ```
 
-## 實測
+To measure fps yourself, open [`tools/fps-test.html`](tools/fps-test.html) full screen in a browser on Windows.
 
-1920×1080，Windows 11（QEMU 虛擬機、無 GPU）全螢幕播放動畫，Mac mini 有線區域網路：
+## Build from source
 
-| 設定 | 平均 fps | 編碼 |
-|---|---|---|
-| Windows 預設 | 32 | ClearCodec |
-| 套用 Windows 端設定，TCP | 78 | AVC444 |
-| 套用 Windows 端設定，UDP | 75 | AVC444 |
+Requirements: macOS 14+, Apple Silicon, Xcode Command Line Tools (`xcode-select --install`; full Xcode isn't needed), [Homebrew](https://brew.sh).
 
-在延遲低於 1 ms 的區域網路，UDP 和 TCP 差不多；UDP 的好處在延遲較高或會掉封包的網路（Wi-Fi、從外面連回家）。
+```bash
+git clone https://github.com/walush2023/MacRDP.git
+cd MacRDP
+scripts/build-freerdp.sh   # FreeRDP with UDP and the macOS patches, 3–5 minutes
+scripts/build-app.sh       # builds build/MacRDP.app with FreeRDP inside
+open build/MacRDP.app
+```
 
-用 [`tools/fps-test.html`](tools/fps-test.html) 可以自己測：在 Windows 上用瀏覽器全螢幕打開它，再看連線記錄的幀數。
+- `build-app.sh` runs `MacRDP --self-test` (argument and `.rdp` checks) and copies the Homebrew libraries FreeRDP needs (ffmpeg, SDL3, OpenSSL, about 46 files) into the app ([`scripts/bundle-dylibs.sh`](scripts/bundle-dylibs.sh)). Only building needs Homebrew.
+- It signs with a Developer ID or Apple Development certificate from your keychain (choose one with `SIGN_IDENTITY=<identity>`). A stable signature lets the Keychain keep trusting MacRDP; with ad-hoc signing macOS asks for your Keychain password again after every rebuild.
 
-## 專案結構
+**Why the local relay?** macOS grants Local Network access per executable, and a self-built `sdl-freerdp` is denied silently, without a prompt (`Couldn't get socket ip address`). So FreeRDP connects to `127.0.0.1` and MacRDP forwards TCP and UDP to the real host. You can turn this off in Settings; sessions through an RD Gateway don't use it.
+
+### Release (sign, notarize, DMG)
+
+```bash
+scripts/release.sh
+```
+
+This builds `build/MacRDP-<version>.dmg`: signed with Developer ID and the hardened runtime, notarized by Apple, and stapled. It needs a "Developer ID Application" certificate and notarization credentials saved once (create an app-specific password at [account.apple.com](https://account.apple.com) → Sign-In and Security):
+
+```bash
+xcrun notarytool store-credentials macrdp-notary --apple-id <Apple ID> --team-id <Team ID> --password <app-specific password>
+```
+
+`SKIP_NOTARIZE=1` signs without notarizing; `NOTARY_PROFILE=<name>` uses another saved profile. The version number lives in `VERSION`.
+
+## Project layout
 
 ```
 Sources/MacRDP/
-  MacRDPApp.swift            App 進入點、選單、.rdp 檔開啟
-  Model/                     Connection（所有設定）、ConnectionStore（JSON）、Keychain、RDPFile（.rdp 匯入匯出）
-  Session/FreeRDPCommand.swift  設定 → FreeRDP 參數
-  Session/SessionManager.swift  啟動 / 追蹤 sdl-freerdp、區域網路檢查、錯誤提示
-  Session/LocalRelay.swift   在 127.0.0.1 轉送 TCP + UDP（避開 macOS 區域網路權限問題）
-  Views/                     主視窗、連線設定、密碼輸入
-  SelfTest.swift             `--self-test` 檢查
-Resources/                   App 圖示（AppIcon.icns，用 scripts/make-icon.swift 從 icon-source.png 產生）
-patches/                     FreeRDP 補丁（原生全螢幕、不閃爍的啟動）
-scripts/                     build-freerdp.sh、build-app.sh、bundle-dylibs.sh、release.sh、make-icon.swift
-tools/                       windows-setup.ps1、fps-test.html
+  MacRDPApp.swift               app entry, menus, opening .rdp files
+  Model/                        Connection (all settings), ConnectionStore (JSON), Keychain, RDPFile
+  Session/FreeRDPCommand.swift  settings → FreeRDP arguments
+  Session/SessionManager.swift  starts and tracks sdl-freerdp, reachability check, error messages
+  Session/LocalRelay.swift      TCP + UDP relay on 127.0.0.1
+  Views/                        main window, PC editor, password prompt
+  SelfTest.swift                `--self-test` checks
+Resources/                      app icon (AppIcon.icns, made by scripts/make-icon.swift from icon-source.png)
+patches/                        FreeRDP patches (native full screen, flicker-free start)
+scripts/                        build-freerdp.sh, build-app.sh, bundle-dylibs.sh, release.sh, make-icon.swift
+tools/                          windows-setup.ps1, fps-test.html
 ```
 
-設定存在 `~/Library/Application Support/MacRDP/connections.json`，密碼存在鑰匙圈（服務名稱 `MacRDP`）。
+Settings live in `~/Library/Application Support/MacRDP/connections.json`; passwords live in the Keychain under the service name `MacRDP`.
 
-## 尚未支援
+## License
 
-- Azure Virtual Desktop / Windows 365 的「工作區」訂閱（需要 Microsoft 帳號登入流程）
-- 攝影機重新導向、交換滑鼠左右鍵（FreeRDP 在 macOS 上沒有對應功能）
-
-## 授權
-
-Apache License 2.0，與 FreeRDP 相同。見 [LICENSE](LICENSE)。
+Apache License 2.0, the same as FreeRDP. See [LICENSE](LICENSE).
