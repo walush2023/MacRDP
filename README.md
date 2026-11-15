@@ -42,6 +42,8 @@ scripts/build-app.sh       # 編譯 App 並把 FreeRDP 打包進去
 open build/MacRDP.app
 ```
 
+`build-app.sh` 會自動用鑰匙圈裡的 Developer ID 或 Apple Development 憑證簽章（也可以用 `SIGN_IDENTITY=<憑證>` 指定）。簽章身分固定，鑰匙圈才會記得「MacRDP 可以讀密碼」；如果找不到憑證就用臨時簽章，每次重新建置後 macOS 都會再問一次鑰匙圈密碼。
+
 `build-app.sh` 會先跑 `MacRDP --self-test`（指令組合與 `.rdp` 解析的檢查）。
 
 FreeRDP 的動態函式庫仍然連結到 Homebrew 的 `ffmpeg`、`sdl3`、`openssl@4` 等，所以執行的電腦也需要用 Homebrew 裝好這些套件（`build-freerdp.sh` 會自動安裝）。

@@ -19,6 +19,19 @@ enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
+    /// Whether a password is stored, without reading it (reading the secret is what triggers the
+    /// "MacRDP wants to use your confidential information" prompt).
+    static func hasPassword(account: String) -> Bool {
+        let q: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        return SecItemCopyMatching(q as CFDictionary, nil) == errSecSuccess
+    }
+
     static func setPassword(_ password: String, account: String) {
         let data = Data(password.utf8)
         let q: [String: Any] = [

@@ -6,6 +6,17 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/build/MacRDP.app"
 VERSION="$(cat "$ROOT/VERSION" 2>/dev/null || echo 0.1.0)"
 
+# Code signing. A stable identity matters: the Keychain remembers which app may read a saved password by
+# its signature. Ad-hoc signatures change on every build, so macOS would ask for the Keychain password
+# again after each rebuild. Set SIGN_IDENTITY to choose one, or SIGN_IDENTITY=- to force ad-hoc.
+if [ -z "${SIGN_IDENTITY:-}" ]; then
+  IDS="$(security find-identity -v -p codesigning 2>/dev/null)"
+  SIGN_IDENTITY="$( (echo "$IDS" | grep '"Developer ID Application'; echo "$IDS" | grep '"Apple Development') \
+                    | head -1 | awk '{print $2}' || true)"
+  SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+fi
+sign() { codesign --force --timestamp=none --sign "$SIGN_IDENTITY" "$@" >/dev/null; }
+
 cd "$ROOT"
 echo "==> Compiling"
 swift build -c release --arch arm64 >/dev/null
@@ -81,12 +92,16 @@ EOF
   if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
     mkdir -p "$HELPER/Contents/Resources"; cp "$ROOT/Resources/AppIcon.icns" "$HELPER/Contents/Resources/"
   fi
-  codesign --force --sign - "$HELPER/Contents/lib/"*.dylib >/dev/null 2>&1
-  codesign --force --sign - --identifier io.github.macrdp.session "$HELPER" >/dev/null 2>&1
+  sign "$HELPER/Contents/lib/"*.dylib
+  sign --identifier io.github.macrdp.session "$HELPER"
 else
   echo "!!  build/freerdp not found: the app will fall back to Homebrew's sdl-freerdp (no UDP)."
 fi
 
-echo "==> Signing (ad-hoc)"
-codesign --force --sign - --identifier io.github.macrdp "$APP" >/dev/null 2>&1
+if [ "$SIGN_IDENTITY" = "-" ]; then
+  echo "==> Signing ad-hoc (no signing certificate found: macOS will ask for the Keychain password after each rebuild)"
+else
+  echo "==> Signing with $(security find-identity -v -p codesigning | grep "$SIGN_IDENTITY" | sed -E 's/.*"(.*)"/\1/' | sed -E 's/\(.*\)//')"
+fi
+sign --identifier io.github.macrdp "$APP"
 echo "==> Done: $APP"

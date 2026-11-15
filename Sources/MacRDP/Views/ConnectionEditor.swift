@@ -45,7 +45,7 @@ struct ConnectionEditor: View {
         }
         .frame(width: 620, height: 500)
         .onAppear {
-            hasSavedPassword = Keychain.password(account: connection.keychainAccount) != nil
+            hasSavedPassword = Keychain.hasPassword(account: connection.keychainAccount)
         }
     }
 
