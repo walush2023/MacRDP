@@ -45,7 +45,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <dict>
   <key>CFBundleName</key><string>MacRDP</string>
   <key>CFBundleDisplayName</key><string>MacRDP</string>
-  <key>CFBundleIdentifier</key><string>io.github.macrdp</string>
+  <key>CFBundleIdentifier</key><string>com.walush.macrdp</string>
   <key>CFBundleExecutable</key><string>MacRDP</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
@@ -74,7 +74,7 @@ if [ -x "$ROOT/build/freerdp/bin/sdl-freerdp" ]; then
   echo "==> Bundling FreeRDP as a helper app"
   # sdl-freerdp lives in its own bundle so macOS can show (and remember) the Local Network prompt for it;
   # a bare executable is denied silently. Libraries go to Contents/lib (@loader_path/../lib).
-  HELPER="$APP/Contents/Helpers/FreeRDP.app"
+  HELPER="$APP/Contents/Helpers/MacRDP Session.app"
   mkdir -p "$HELPER/Contents/MacOS"
   cp "$ROOT/build/freerdp/bin/sdl-freerdp" "$HELPER/Contents/MacOS/sdl-freerdp"
   cp -R "$ROOT/build/freerdp/lib" "$HELPER/Contents/lib"
@@ -86,7 +86,8 @@ if [ -x "$ROOT/build/freerdp/bin/sdl-freerdp" ]; then
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key><string>MacRDP Session</string>
-  <key>CFBundleIdentifier</key><string>io.github.macrdp.session</string>
+  <key>CFBundleDisplayName</key><string>MacRDP Session</string>
+  <key>CFBundleIdentifier</key><string>com.walush.macrdp.session</string>
   <key>CFBundleExecutable</key><string>sdl-freerdp</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
@@ -102,7 +103,7 @@ EOF
     mkdir -p "$HELPER/Contents/Resources"; cp "$ROOT/Resources/AppIcon.icns" "$HELPER/Contents/Resources/"
   fi
   for lib in "$HELPER/Contents/lib/"*.dylib; do [ -L "$lib" ] || sign "$lib"; done
-  sign --identifier io.github.macrdp.session --entitlements "$ROOT/Resources/Session.entitlements" "$HELPER"
+  sign --identifier com.walush.macrdp.session --entitlements "$ROOT/Resources/Session.entitlements" "$HELPER"
 else
   echo "!!  build/freerdp not found: the app will fall back to Homebrew's sdl-freerdp (no UDP)."
 fi
@@ -112,5 +113,5 @@ if [ "$SIGN_IDENTITY" = "-" ]; then
 else
   echo "==> Signing with $(security find-identity -v -p codesigning | grep "$SIGN_IDENTITY" | sed -E 's/.*"(.*)"/\1/' | sed -E 's/\(.*\)//')"
 fi
-sign --identifier io.github.macrdp "$APP"
+sign --identifier com.walush.macrdp "$APP"
 echo "==> Done: $APP"

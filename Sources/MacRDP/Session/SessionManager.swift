@@ -43,7 +43,7 @@ final class SessionManager: ObservableObject {
             candidates.append(custom)
         }
         candidates.append(Bundle.main.bundleURL
-            .appendingPathComponent("Contents/Helpers/FreeRDP.app/Contents/MacOS/sdl-freerdp").path)
+            .appendingPathComponent("Contents/Helpers/MacRDP Session.app/Contents/MacOS/sdl-freerdp").path)
         candidates += ["/opt/homebrew/bin/sdl-freerdp", "/usr/local/bin/sdl-freerdp"]
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
             .map { URL(fileURLWithPath: $0) }
@@ -138,9 +138,12 @@ final class SessionManager: ObservableObject {
         }
         let args = FreeRDPCommand.arguments(for: c, credentials: credentials, relayPort: relayPort)
         let log = logURL(for: c.id)
-        FileManager.default.createFile(atPath: log.path, contents: nil)
-        guard let logHandle = try? FileHandle(forWritingTo: log) else { return }
-        logHandle.write(Data(("# " + FreeRDPCommand.redacted(args).joined(separator: " ") + "\n").utf8))
+        let id = c.id
+        let sessionLog = SessionLog(url: log, header: "# " + FreeRDPCommand.redacted(args).joined(separator: " ") + "\n") {
+            Task { @MainActor in
+                if self.processes[id] != nil { self.states[id] = .connected }
+            }
+        }
 
         let p = Process()
         p.executableURL = bin
@@ -150,13 +153,17 @@ final class SessionManager: ObservableObject {
         p.environment = env
         let stdin = Pipe()
         p.standardInput = stdin
-        p.standardOutput = logHandle
-        p.standardError = logHandle
+        p.standardOutput = sessionLog.pipe
+        p.standardError = sessionLog.pipe
 
-        let id = c.id
+        let name = c.displayName
         p.terminationHandler = { proc in
             let status = proc.terminationStatus
-            Task { @MainActor in self.finished(id: id, status: status, name: c.displayName) }
+            DispatchQueue.global().async {
+                sessionLog.finish()
+                let markers = sessionLog.markers
+                Task { @MainActor in self.finished(id: id, status: status, name: name, markers: markers) }
+            }
         }
         do {
             try p.run()
@@ -166,6 +173,7 @@ final class SessionManager: ObservableObject {
                               logURL: log, wrongPassword: false)
             return
         }
+        sessionLog.childStarted()
         let payload = args.joined(separator: "\n") + "\n"
         stdin.fileHandleForWriting.write(Data(payload.utf8))
         try? stdin.fileHandleForWriting.close()
@@ -173,7 +181,6 @@ final class SessionManager: ObservableObject {
         processes[id] = p
         states[id] = .connecting
         store.markConnected(id)
-        watchForLogon(id: id, log: log)
     }
 
     func disconnect(_ id: UUID) {
@@ -184,38 +191,21 @@ final class SessionManager: ObservableObject {
         processes.values.forEach { $0.terminate() }
     }
 
-    private func watchForLogon(id: UUID, log: URL) {
-        Task { @MainActor in
-            for _ in 0..<120 {
-                try? await Task.sleep(for: .milliseconds(500))
-                guard processes[id] != nil else { return }
-                if let text = try? String(contentsOf: log, encoding: .utf8),
-                   text.contains("Logon Info") || text.contains("gdi_init_ex") {
-                    states[id] = .connected
-                    return
-                }
-            }
-        }
-    }
-
-    private func finished(id: UUID, status: Int32, name: String) {
+    private func finished(id: UUID, status: Int32, name: String, markers: SessionLog.Markers) {
         processes[id] = nil
         relays.removeValue(forKey: id)?.stop()
         let log = logURL(for: id)
-        let text = (try? String(contentsOf: log, encoding: .utf8)) ?? ""
-        let wasConnected = states[id] == .connected || text.contains("Logon Info")
+        let wasConnected = states[id] == .connected || markers.loggedOn
         states[id] = nil
 
-        let authErrors = ["LOGON_FAILURE", "AUTHENTICATION_FAILED", "WRONG_PASSWORD", "ACCOUNT_RESTRICTION",
-                          "PASSWORD_EXPIRED", "ACCOUNT_DISABLED", "ACCOUNT_LOCKED_OUT"]
-        if authErrors.contains(where: text.contains) {
+        if markers.authFailed {
             failure = Failure(connectionID: id, title: "無法登入 \(name)",
                               message: "使用者名稱或密碼錯誤，或帳號被限制登入。", logURL: log, wrongPassword: true)
         } else if !wasConnected && status != 0 {
             var msg = "連線失敗（代碼 \(status)）。"
-            if text.contains("Couldn't get socket ip address") || text.contains("ConnectLayer") {
+            if markers.unreachable {
                 msg = "連不上主機。請確認 IP、埠號、遠端電腦已開啟遠端桌面，並在「系統設定 → 隱私權與安全性 → 區域網路」允許 MacRDP。"
-            } else if text.contains("certificate") && text.contains("ERROR") {
+            } else if markers.certificateError {
                 msg = "憑證驗證失敗。可在連線設定的「安全性」改成「第一次連線時信任並記住」。"
             }
             failure = Failure(connectionID: id, title: "無法連線到 \(name)", message: msg, logURL: log, wrongPassword: false)

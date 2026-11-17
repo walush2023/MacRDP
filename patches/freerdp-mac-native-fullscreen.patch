@@ -119,6 +119,17 @@
  	}
  	return window;
  }
+--- a/client/SDL/SDL3/sdl_utils.cpp
++++ b/client/SDL/SDL3/sdl_utils.cpp
+@@ -512,7 +512,7 @@
+ 
+ 		const auto windowTitle = freerdp_settings_get_string(settings, FreeRDP_WindowTitle);
+ 		if (windowTitle)
+-			return {};
++			return windowTitle; /* mac_rdp: was `return {};`, which dropped /title */
+ 
+ 		const auto name = freerdp_settings_get_server_name(settings);
+ 		const auto port = freerdp_settings_get_uint32(settings, FreeRDP_ServerPort);
 --- a/client/SDL/SDL3/CMakeLists.txt
 +++ b/client/SDL/SDL3/CMakeLists.txt
 @@ -157,6 +157,9 @@
