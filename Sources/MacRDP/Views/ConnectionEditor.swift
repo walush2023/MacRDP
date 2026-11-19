@@ -19,13 +19,13 @@ struct ConnectionEditor: View {
     var body: some View {
         VStack(spacing: 0) {
             TabView(selection: $tab) {
-                general.tabItem { Text("一般") }.tag(0)
-                display.tabItem { Text("顯示") }.tag(1)
-                devices.tabItem { Text("裝置與音訊") }.tag(2)
-                folders.tabItem { Text("資料夾") }.tag(3)
-                performance.tabItem { Text("效能") }.tag(4)
-                gateway.tabItem { Text("閘道") }.tag(5)
-                advanced.tabItem { Text("進階") }.tag(6)
+                general.tabItem { Text("General") }.tag(0)
+                display.tabItem { Text("Display") }.tag(1)
+                devices.tabItem { Text("Devices & Audio") }.tag(2)
+                folders.tabItem { Text("Folders") }.tag(3)
+                performance.tabItem { Text("Performance") }.tag(4)
+                gateway.tabItem { Text("Gateway") }.tag(5)
+                advanced.tabItem { Text("Advanced") }.tag(6)
             }
             .padding([.horizontal, .top])
 
@@ -36,14 +36,14 @@ struct ConnectionEditor: View {
                         .foregroundStyle(.secondary).font(.callout)
                 }
                 Spacer()
-                Button("取消", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-                Button(isNew ? "新增" : "儲存") { save() }
+                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(isNew ? String(localized: "Add") : String(localized: "Save")) { save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(connection.host.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             .padding()
         }
-        .frame(width: 620, height: 500)
+        .frame(width: 700, height: 500)
         .onAppear {
             hasSavedPassword = Keychain.hasPassword(account: connection.keychainAccount)
         }
@@ -54,33 +54,33 @@ struct ConnectionEditor: View {
     private var general: some View {
         Form {
             Section {
-                TextField("電腦名稱或 IP", text: $connection.host, prompt: Text("例如 192.168.1.10 或 pc.example.com"))
-                TextField("埠號", value: $connection.port, format: .number.grouping(.never))
-                TextField("易記名稱", text: $connection.friendlyName, prompt: Text("選填"))
-                Picker("群組", selection: $connection.group) {
-                    Text("無").tag("")
+                TextField("PC name or IP", text: $connection.host, prompt: Text("e.g. 192.168.1.10 or pc.example.com"))
+                TextField("Port", value: $connection.port, format: .number.grouping(.never))
+                TextField("Friendly name", text: $connection.friendlyName, prompt: Text("Optional"))
+                Picker("Group", selection: $connection.group) {
+                    Text("None").tag("")
                     ForEach(Array(Set(store.groups + [connection.group]).filter { !$0.isEmpty }).sorted(), id: \.self) {
                         Text($0).tag($0)
                     }
                 }
-                TextField("新群組", text: $connection.group, prompt: Text("輸入名稱即可建立新群組"))
+                TextField("New group", text: $connection.group, prompt: Text("Type a name to create a group"))
             }
-            Section("認證") {
-                TextField("使用者名稱", text: $connection.username, prompt: Text("user、DOMAIN\\user 或 user@domain"))
-                TextField("網域", text: $connection.domain, prompt: Text("選填"))
-                SecureField("密碼", text: $password,
-                            prompt: Text(hasSavedPassword ? "已儲存（留空 = 不變）" : "選填"))
-                Toggle("把密碼存在鑰匙圈", isOn: $connection.savePassword)
+            Section("Credentials") {
+                TextField("User name", text: $connection.username, prompt: Text("user, DOMAIN\\user or user@domain"))
+                TextField("Domain", text: $connection.domain, prompt: Text("Optional"))
+                SecureField("Password", text: $password,
+                            prompt: Text(hasSavedPassword ? String(localized: "Saved (leave empty to keep)") : String(localized: "Optional")))
+                Toggle("Save password in Keychain", isOn: $connection.savePassword)
                 if hasSavedPassword {
-                    Button("清除已儲存的密碼") {
+                    Button("Clear Saved Password") {
                         Keychain.delete(account: connection.keychainAccount)
                         hasSavedPassword = false
                     }
                 }
             }
             Section {
-                Toggle("連線中斷時自動重新連線", isOn: $connection.reconnect)
-                Toggle("連線到系統管理工作階段", isOn: $connection.adminSession)
+                Toggle("Reconnect if the connection drops", isOn: $connection.reconnect)
+                Toggle("Connect to an admin session", isOn: $connection.adminSession)
             }
         }
         .formStyle(.grouped)
@@ -89,30 +89,30 @@ struct ConnectionEditor: View {
     private var display: some View {
         Form {
             Section {
-                Picker("解析度", selection: $connection.resolution) {
+                Picker("Resolution", selection: $connection.resolution) {
                     ForEach(Resolution.allCases) { Text($0.label).tag($0) }
                 }
                 if connection.resolution == .custom {
                     HStack {
-                        TextField("寬", value: $connection.customWidth, format: .number.grouping(.never))
+                        TextField("Width", value: $connection.customWidth, format: .number.grouping(.never))
                         Text("×")
-                        TextField("高", value: $connection.customHeight, format: .number.grouping(.never))
+                        TextField("Height", value: $connection.customHeight, format: .number.grouping(.never))
                     }
                 }
-                Toggle("視窗大小改變時更新遠端解析度", isOn: $connection.dynamicResolution)
-                Picker("顯示比例", selection: $connection.desktopScale) {
+                Toggle("Update the session resolution on resize", isOn: $connection.dynamicResolution)
+                Picker("Scale", selection: $connection.desktopScale) {
                     ForEach([100, 125, 150, 175, 200, 250, 300], id: \.self) { Text("\($0)%").tag($0) }
                 }
             }
             Section {
-                Toggle("以全螢幕開始工作階段", isOn: $connection.fullscreen)
-                Toggle("使用所有顯示器", isOn: $connection.useAllMonitors)
-                Toggle("讓工作階段符合視窗大小（縮放）", isOn: $connection.fitToWindow)
+                Toggle("Start session in full screen", isOn: $connection.fullscreen)
+                Toggle("Use all monitors", isOn: $connection.useAllMonitors)
+                Toggle("Fit session to window", isOn: $connection.fitToWindow)
             } footer: {
-                Text("全螢幕使用 macOS 原生全螢幕：工作階段有自己的 Space，可用四指滑動或 Control-←/→ 切換。按 Control-Option-Return 切換全螢幕。")
+                Text("Full screen uses native macOS full screen: each session gets its own Space; swipe with four fingers or press Control-←/→ to switch. Control-Option-Return toggles full screen.")
             }
             Section {
-                Picker("色彩品質", selection: $connection.colorDepth) {
+                Picker("Color quality", selection: $connection.colorDepth) {
                     ForEach(ColorDepth.allCases) { Text($0.label).tag($0) }
                 }
             }
@@ -122,21 +122,21 @@ struct ConnectionEditor: View {
 
     private var devices: some View {
         Form {
-            Section("剪貼簿") {
-                Picker("文字與圖片", selection: $connection.clipboard) {
+            Section("Clipboard") {
+                Picker("Text and images", selection: $connection.clipboard) {
                     ForEach(ClipboardDirection.allCases) { Text($0.label).tag($0) }
                 }
-                Picker("檔案", selection: $connection.fileClipboard) {
+                Picker("Files", selection: $connection.fileClipboard) {
                     ForEach(ClipboardDirection.allCases) { Text($0.label).tag($0) }
                 }
             }
-            Section("重新導向") {
-                Toggle("印表機", isOn: $connection.printers)
-                Toggle("智慧卡", isOn: $connection.smartCards)
-                Toggle("麥克風", isOn: $connection.microphone)
+            Section("Redirect") {
+                Toggle("Printers", isOn: $connection.printers)
+                Toggle("Smart cards", isOn: $connection.smartCards)
+                Toggle("Microphone", isOn: $connection.microphone)
             }
-            Section("音訊") {
-                Picker("播放聲音", selection: $connection.sound) {
+            Section("Audio") {
+                Picker("Play sound", selection: $connection.sound) {
                     ForEach(SoundMode.allCases) { Text($0.label).tag($0) }
                 }
             }
@@ -147,12 +147,12 @@ struct ConnectionEditor: View {
     private var folders: some View {
         Form {
             Section {
-                Toggle("分享我的家目錄", isOn: $connection.redirectHome)
+                Toggle("Share my home folder", isOn: $connection.redirectHome)
             }
             Section {
                 ForEach($connection.folders) { $f in
                     HStack {
-                        TextField("名稱", text: $f.name).frame(width: 120)
+                        TextField("Name", text: $f.name).frame(width: 120)
                         Text(f.path).lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
                         Spacer()
                         Button(role: .destructive) {
@@ -161,11 +161,11 @@ struct ConnectionEditor: View {
                             .buttonStyle(.borderless)
                     }
                 }
-                Button("加入資料夾…") { addFolder() }
+                Button("Add Folder…") { addFolder() }
             } header: {
-                Text("重新導向的資料夾")
+                Text("Redirected folders")
             } footer: {
-                Text("在遠端的「本機」中會以「名稱 on 這台 Mac」出現。")
+                Text("They appear on the remote PC under This PC as \"<name> on <this Mac>\".")
             }
         }
         .formStyle(.grouped)
@@ -174,26 +174,26 @@ struct ConnectionEditor: View {
     private var performance: some View {
         Form {
             Section {
-                Picker("傳輸方式", selection: $connection.transport) {
+                Picker("Transport", selection: $connection.transport) {
                     ForEach(Transport.allCases) { Text($0.label).tag($0) }
                 }
-                Picker("影像編碼", selection: $connection.codec) {
+                Picker("Graphics codec", selection: $connection.codec) {
                     ForEach(GraphicsCodec.allCases) { Text($0.label).tag($0) }
                 }
-                Toggle("不限制幀率（不等待每幀確認）", isOn: $connection.unlimitedFrames)
-                Picker("網路類型", selection: $connection.network) {
+                Toggle("Uncapped frame rate (don't wait for frame acknowledgements)", isOn: $connection.unlimitedFrames)
+                Picker("Network type", selection: $connection.network) {
                     ForEach(NetworkType.allCases) { Text($0.label).tag($0) }
                 }
             } footer: {
-                Text("要超過 30 fps 並使用 H.264，遠端 Windows 也需要調整設定，請看 README 的「Windows 端設定」。")
+                Text("To go above 30 fps and use H.264, the Windows PC needs a few changes too. See \"Windows setup\" in the README.")
             }
-            Section("視覺效果") {
-                Toggle("桌布", isOn: $connection.wallpaper)
-                Toggle("佈景主題", isOn: $connection.themes)
-                Toggle("字型平滑 (ClearType)", isOn: $connection.fontSmoothing)
-                Toggle("桌面組合（透明效果）", isOn: $connection.desktopComposition)
-                Toggle("拖曳時顯示視窗內容", isOn: $connection.windowDrag)
-                Toggle("選單動畫", isOn: $connection.menuAnimations)
+            Section("Visual effects") {
+                Toggle("Wallpaper", isOn: $connection.wallpaper)
+                Toggle("Themes", isOn: $connection.themes)
+                Toggle("Font smoothing (ClearType)", isOn: $connection.fontSmoothing)
+                Toggle("Desktop composition (transparency)", isOn: $connection.desktopComposition)
+                Toggle("Show window contents while dragging", isOn: $connection.windowDrag)
+                Toggle("Menu animations", isOn: $connection.menuAnimations)
             }
         }
         .formStyle(.grouped)
@@ -202,16 +202,16 @@ struct ConnectionEditor: View {
     private var gateway: some View {
         Form {
             Section {
-                Toggle("使用遠端桌面閘道 (RD Gateway)", isOn: $connection.gateway.enabled)
+                Toggle("Use a Remote Desktop Gateway", isOn: $connection.gateway.enabled)
                 if connection.gateway.enabled {
-                    TextField("閘道伺服器", text: $connection.gateway.host, prompt: Text("gateway.example.com"))
-                    TextField("埠號", value: $connection.gateway.port, format: .number.grouping(.never))
-                    Toggle("連線到區域網路的電腦時不使用閘道", isOn: $connection.gateway.bypassForLocal)
-                    Toggle("使用電腦的帳號密碼", isOn: $connection.gateway.useConnectionCredentials)
+                    TextField("Gateway server", text: $connection.gateway.host, prompt: Text("gateway.example.com"))
+                    TextField("Port", value: $connection.gateway.port, format: .number.grouping(.never))
+                    Toggle("Bypass the gateway for local addresses", isOn: $connection.gateway.bypassForLocal)
+                    Toggle("Use the PC's credentials", isOn: $connection.gateway.useConnectionCredentials)
                     if !connection.gateway.useConnectionCredentials {
-                        TextField("閘道使用者名稱", text: $connection.gateway.username)
-                        TextField("閘道網域", text: $connection.gateway.domain)
-                        SecureField("閘道密碼", text: $gatewayPassword, prompt: Text("留空 = 不變"))
+                        TextField("Gateway user name", text: $connection.gateway.username)
+                        TextField("Gateway domain", text: $connection.gateway.domain)
+                        SecureField("Gateway password", text: $gatewayPassword, prompt: Text("Leave empty to keep"))
                     }
                 }
             }
@@ -221,25 +221,25 @@ struct ConnectionEditor: View {
 
     private var advanced: some View {
         Form {
-            Section("安全性") {
-                Picker("伺服器憑證", selection: $connection.certificate) {
+            Section("Security") {
+                Picker("Server certificate", selection: $connection.certificate) {
                     ForEach(CertificatePolicy.allCases) { Text($0.label).tag($0) }
                 }
-                Picker("安全性通訊協定", selection: $connection.security) {
+                Picker("Security protocol", selection: $connection.security) {
                     ForEach(SecurityMode.allCases) { Text($0.label).tag($0) }
                 }
             }
-            Section("啟動") {
-                TextField("RemoteApp 程式", text: $connection.remoteApp, prompt: Text("例如 ||notepad 或 C:\\Windows\\notepad.exe"))
-                TextField("替代殼層", text: $connection.alternateShell, prompt: Text("選填"))
-                TextField("負載平衡資訊", text: $connection.loadBalanceInfo, prompt: Text("選填"))
+            Section("Launch") {
+                TextField("RemoteApp program", text: $connection.remoteApp, prompt: Text("e.g. ||notepad or C:\\Windows\\notepad.exe"))
+                TextField("Alternate shell", text: $connection.alternateShell, prompt: Text("Optional"))
+                TextField("Load balance info", text: $connection.loadBalanceInfo, prompt: Text("Optional"))
             }
             Section {
-                TextField("鍵盤配置", text: $connection.keyboardLayout, prompt: Text("留空 = 跟隨 Mac，例如 0x00000409"))
-                TextField("其他 FreeRDP 參數", text: $connection.extraArguments, prompt: Text("例如 /timeout:30000 +async-channels"), axis: .vertical)
+                TextField("Keyboard layout", text: $connection.keyboardLayout, prompt: Text("Empty = follow the Mac, e.g. 0x00000409"))
+                TextField("Extra FreeRDP arguments", text: $connection.extraArguments, prompt: Text("e.g. /timeout:30000 +async-channels"), axis: .vertical)
                     .lineLimit(2...4)
             } footer: {
-                Text("其他參數會直接加在 sdl-freerdp 指令後面。")
+                Text("Extra arguments are appended to the sdl-freerdp command line.")
             }
         }
         .formStyle(.grouped)
@@ -281,15 +281,15 @@ struct PreferencesView: View {
     var body: some View {
         Form {
             Section {
-                TextField("sdl-freerdp 路徑", text: $freerdpPath, prompt: Text("留空 = 自動尋找"))
-                LabeledContent("目前使用", value: SessionManager.freerdpBinary()?.path ?? "找不到")
+                TextField("sdl-freerdp path", text: $freerdpPath, prompt: Text("Empty = find automatically"))
+                LabeledContent("In use", value: SessionManager.freerdpBinary()?.path ?? String(localized: "Not found"))
             } footer: {
-                Text("自動尋找順序：App 內附的 FreeRDP → /opt/homebrew/bin → /usr/local/bin。Homebrew 版沒有 UDP 支援。")
+                Text("Search order: the FreeRDP inside the app → /opt/homebrew/bin → /usr/local/bin. The Homebrew build has no UDP support.")
             }
             Section {
-                Toggle("透過 MacRDP 轉送連線", isOn: $useRelay)
+                Toggle("Relay connections through MacRDP", isOn: $useRelay)
             } footer: {
-                Text("macOS 的「區域網路」權限只會詢問 MacRDP，不會詢問 FreeRDP。開啟時 FreeRDP 連到 127.0.0.1，由 MacRDP 轉送 TCP 與 UDP，所以不需要另外授權。使用閘道時不轉送。")
+                Text("macOS asks only MacRDP, not FreeRDP, for Local Network access. With this on, FreeRDP connects to 127.0.0.1 and MacRDP relays TCP and UDP to the PC, so no extra permission is needed. Not used with an RD Gateway.")
             }
         }
         .formStyle(.grouped)

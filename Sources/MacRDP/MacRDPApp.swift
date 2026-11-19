@@ -24,9 +24,9 @@ struct MacRDPApp: App {
         .defaultSize(width: 1000, height: 680)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("新增電腦…") { NotificationCenter.default.post(name: .newConnection, object: nil) }
+                Button("Add PC…") { NotificationCenter.default.post(name: .newConnection, object: nil) }
                     .keyboardShortcut("n")
-                Button("匯入 .rdp 檔案…") { NotificationCenter.default.post(name: .importRDP, object: nil) }
+                Button("Import .rdp File…") { NotificationCenter.default.post(name: .importRDP, object: nil) }
                     .keyboardShortcut("o")
             }
         }

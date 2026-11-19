@@ -43,7 +43,7 @@ final class ConnectionStore: ObservableObject {
     func duplicate(_ c: Connection) -> Connection {
         var copy = c
         copy.id = UUID()
-        copy.friendlyName = (c.friendlyName.isEmpty ? c.host : c.friendlyName) + " 拷貝"
+        copy.friendlyName = (c.friendlyName.isEmpty ? c.host : c.friendlyName) + String(localized: " copy")
         copy.lastConnected = nil
         if let p = Keychain.password(account: c.keychainAccount) {
             Keychain.setPassword(p, account: copy.keychainAccount)

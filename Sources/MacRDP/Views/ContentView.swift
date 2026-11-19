@@ -22,10 +22,10 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $sidebar) {
-                Label("所有電腦", systemImage: "desktopcomputer").tag(SidebarItem.all)
-                Label("最近使用", systemImage: "clock").tag(SidebarItem.recent)
+                Label("All PCs", systemImage: "desktopcomputer").tag(SidebarItem.all)
+                Label("Recent", systemImage: "clock").tag(SidebarItem.recent)
                 if !store.groups.isEmpty {
-                    Section("群組") {
+                    Section("Groups") {
                         ForEach(store.groups, id: \.self) { g in
                             Label(g, systemImage: "folder").tag(SidebarItem.group(g))
                         }
@@ -35,7 +35,7 @@ struct ContentView: View {
             .navigationSplitViewColumnWidth(min: 170, ideal: 190)
         } detail: {
             detail
-                .searchable(text: $search, placement: .toolbar, prompt: "搜尋電腦")
+                .searchable(text: $search, placement: .toolbar, prompt: "Search PCs")
                 .toolbar { toolbar }
         }
         .sheet(item: $editing) { c in
@@ -62,7 +62,7 @@ struct ContentView: View {
         }
         .alert(item: $sessions.failure) { f in
             Alert(title: Text(f.title), message: Text(f.message),
-                  primaryButton: .default(Text(f.openPrivacySettings ? "打開系統設定" : (f.wrongPassword ? "重新輸入密碼" : "顯示記錄"))) {
+                  primaryButton: .default(Text(f.openPrivacySettings ? String(localized: "Open System Settings") : (f.wrongPassword ? String(localized: "Enter Password Again") : String(localized: "Show Log")))) {
                       if f.openPrivacySettings {
                           NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork")!)
                       } else if f.wrongPassword, let c = store.connection(id: f.connectionID) {
@@ -72,12 +72,12 @@ struct ContentView: View {
                           NSWorkspace.shared.open(f.logURL)
                       }
                   },
-                  secondaryButton: .cancel(Text("關閉")))
+                  secondaryButton: .cancel(Text("Close")))
         }
-        .confirmationDialog("刪除 \(selection.count) 台電腦？", isPresented: $confirmDelete) {
-            Button("刪除", role: .destructive) { store.delete(selection); selection.removeAll() }
+        .confirmationDialog("Delete \(selection.count) PCs?", isPresented: $confirmDelete) {
+            Button("Delete", role: .destructive) { store.delete(selection); selection.removeAll() }
         } message: {
-            Text("連線設定和鑰匙圈中的密碼都會刪除。")
+            Text("Their settings and saved passwords in the Keychain will be deleted.")
         }
         .onReceive(NotificationCenter.default.publisher(for: .newConnection)) { _ in newConnection() }
         .onReceive(NotificationCenter.default.publisher(for: .importRDP)) { _ in importRDP() }
@@ -126,12 +126,12 @@ struct ContentView: View {
     @ViewBuilder private var detail: some View {
         if store.connections.isEmpty {
             ContentUnavailableView {
-                Label("尚未加入任何電腦", systemImage: "display.2")
+                Label("No PCs yet", systemImage: "display.2")
             } description: {
-                Text("加入一台 Windows 電腦，或匯入 .rdp 檔案。")
+                Text("Add a Windows PC, or import an .rdp file.")
             } actions: {
-                Button("新增電腦") { newConnection() }.buttonStyle(.borderedProminent)
-                Button("匯入 .rdp 檔案…") { importRDP() }
+                Button("Add PC") { newConnection() }.buttonStyle(.borderedProminent)
+                Button("Import .rdp File…") { importRDP() }
             }
         } else if filtered.isEmpty {
             ContentUnavailableView.search(text: search)
@@ -151,16 +151,16 @@ struct ContentView: View {
             .onTapGesture { selection.removeAll() }
         } else {
             Table(filtered, selection: $selection) {
-                TableColumn("名稱") { c in
+                TableColumn("Name") { c in
                     HStack {
                         StatusDot(state: sessions.states[c.id])
                         Text(c.displayName)
                     }
                 }
-                TableColumn("主機") { c in Text(c.port == 3389 ? c.host : "\(c.host):\(c.port)") }
-                TableColumn("使用者") { c in Text(c.username) }
-                TableColumn("群組") { c in Text(c.group) }
-                TableColumn("上次連線") { c in
+                TableColumn("Host") { c in Text(c.port == 3389 ? c.host : "\(c.host):\(c.port)") }
+                TableColumn("User") { c in Text(c.username) }
+                TableColumn("Group") { c in Text(c.group) }
+                TableColumn("Last Connected") { c in
                     Text(c.lastConnected.map { $0.formatted(.relative(presentation: .named)) } ?? "—")
                 }
             }
@@ -174,39 +174,39 @@ struct ContentView: View {
 
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
         ToolbarItemGroup {
-            Picker("檢視", selection: $grid) {
+            Picker("View", selection: $grid) {
                 Image(systemName: "square.grid.2x2").tag(true)
                 Image(systemName: "list.bullet").tag(false)
             }
             .pickerStyle(.segmented)
-            .help("切換格狀或清單檢視")
+            .help("Switch between grid and list")
 
             Menu {
-                Button("新增電腦…") { newConnection() }
-                Button("匯入 .rdp 檔案…") { importRDP() }
+                Button("Add PC…") { newConnection() }
+                Button("Import .rdp File…") { importRDP() }
             } label: {
-                Label("新增", systemImage: "plus")
+                Label("Add", systemImage: "plus")
             } primaryAction: {
                 newConnection()
             }
-            .help("新增電腦")
+            .help("Add PC")
         }
     }
 
     @ViewBuilder private func menu(for c: Connection) -> some View {
         if sessions.isRunning(c.id) {
-            Button("中斷連線") { sessions.disconnect(c.id) }
+            Button("Disconnect") { sessions.disconnect(c.id) }
         } else {
-            Button("連線") { connect(c) }
+            Button("Connect") { connect(c) }
         }
         Divider()
-        Button("編輯…") { isNew = false; editing = c }
-        Button("複製") { selection = [store.duplicate(c).id] }
-        Button("匯出成 .rdp…") { export(c) }
-        Button("拷貝 FreeRDP 指令") { copyCommand(c) }
-        Button("顯示連線記錄") { NSWorkspace.shared.open(sessions.logURL(for: c.id)) }
+        Button("Edit…") { isNew = false; editing = c }
+        Button("Duplicate") { selection = [store.duplicate(c).id] }
+        Button("Export as .rdp…") { export(c) }
+        Button("Copy FreeRDP Command") { copyCommand(c) }
+        Button("Show Connection Log") { NSWorkspace.shared.open(sessions.logURL(for: c.id)) }
         Divider()
-        Button("刪除…", role: .destructive) {
+        Button("Delete…", role: .destructive) {
             if !selection.contains(c.id) { selection = [c.id] }
             confirmDelete = true
         }
@@ -307,7 +307,7 @@ struct ConnectionCard: View {
                         .foregroundStyle(.white.opacity(0.9)))
                     .frame(height: 110)
                 if let state {
-                    Text(state == .connected ? "已連線" : "連線中…")
+                    Text(state == .connected ? String(localized: "Connected") : String(localized: "Connecting…"))
                         .font(.caption2.weight(.semibold))
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(.thinMaterial, in: Capsule())
@@ -338,15 +338,15 @@ struct PasswordPrompt: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("登入 \(connection.displayName)").font(.headline)
+            Text("Sign in to \(connection.displayName)").font(.headline)
             Text(connection.domain.isEmpty ? connection.username : "\(connection.domain)\\\(connection.username)")
                 .foregroundStyle(.secondary)
-            SecureField("密碼", text: $password).onSubmit(go)
-            Toggle("記住密碼（存在鑰匙圈）", isOn: $remember)
+            SecureField("Password", text: $password).onSubmit(go)
+            Toggle("Remember password (in Keychain)", isOn: $remember)
             HStack {
                 Spacer()
-                Button("取消", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("連線", action: go).keyboardShortcut(.defaultAction).disabled(password.isEmpty)
+                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Connect", action: go).keyboardShortcut(.defaultAction).disabled(password.isEmpty)
             }
         }
         .padding(20)

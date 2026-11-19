@@ -66,13 +66,13 @@ final class SessionManager: ObservableObject {
                 launch(c, credentials: credentials, store: store)
             case .localNetworkDenied:
                 states[c.id] = nil
-                failure = Failure(connectionID: c.id, title: "需要區域網路權限",
-                                  message: "請在「系統設定 → 隱私權與安全性 → 區域網路」開啟 MacRDP，再連線一次。",
+                failure = Failure(connectionID: c.id, title: String(localized: "Local Network access needed"),
+                                  message: String(localized: "Turn on MacRDP in System Settings → Privacy & Security → Local Network, then connect again."),
                                   logURL: logURL(for: c.id), wrongPassword: false, openPrivacySettings: true)
             case .unreachable(let why):
                 states[c.id] = nil
-                failure = Failure(connectionID: c.id, title: "連不上 \(c.displayName)",
-                                  message: "\(c.host):\(c.port) 沒有回應（\(why)）。請確認 IP 與埠號，以及遠端電腦已開啟遠端桌面且防火牆允許 3389 埠。",
+                failure = Failure(connectionID: c.id, title: String(localized: "Can't reach \(c.displayName)"),
+                                  message: String(localized: "\(c.host):\(String(c.port)) doesn't respond (\(why)). Check the address and port, and that Remote Desktop is on and the firewall allows port 3389 on the PC."),
                                   logURL: logURL(for: c.id), wrongPassword: false)
             }
         }
@@ -81,7 +81,7 @@ final class SessionManager: ObservableObject {
     enum ProbeResult: Sendable { case reachable, localNetworkDenied, unreachable(String) }
 
     static func probe(host: String, port: Int, timeout: Double = 6) async -> ProbeResult {
-        guard let nwPort = NWEndpoint.Port(rawValue: UInt16(clamping: port)) else { return .unreachable("埠號無效") }
+        guard let nwPort = NWEndpoint.Port(rawValue: UInt16(clamping: port)) else { return .unreachable(String(localized: "invalid port")) }
         let conn = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: .tcp)
         final class Once: @unchecked Sendable {
             private let lock = NSLock()
@@ -114,7 +114,7 @@ final class SessionManager: ObservableObject {
                 } else if case .waiting(let err) = conn.state {
                     finish(.unreachable(err.localizedDescription))
                 } else {
-                    finish(.unreachable("逾時"))
+                    finish(.unreachable(String(localized: "timed out")))
                 }
             }
         }
@@ -122,8 +122,8 @@ final class SessionManager: ObservableObject {
 
     private func launch(_ c: Connection, credentials: FreeRDPCommand.Credentials, store: ConnectionStore) {
         guard let bin = Self.freerdpBinary() else {
-            failure = Failure(connectionID: c.id, title: "找不到 FreeRDP",
-                              message: "請執行 scripts/build-freerdp.sh 或在「設定」中指定 sdl-freerdp 的路徑。",
+            failure = Failure(connectionID: c.id, title: String(localized: "FreeRDP not found"),
+                              message: String(localized: "Run scripts/build-freerdp.sh, or set the path to sdl-freerdp in Settings."),
                               logURL: logURL(for: c.id), wrongPassword: false)
             return
         }
@@ -169,7 +169,7 @@ final class SessionManager: ObservableObject {
             try p.run()
         } catch {
             relays.removeValue(forKey: id)?.stop()
-            failure = Failure(connectionID: id, title: "無法啟動 FreeRDP", message: error.localizedDescription,
+            failure = Failure(connectionID: id, title: String(localized: "Couldn't start FreeRDP"), message: error.localizedDescription,
                               logURL: log, wrongPassword: false)
             return
         }
@@ -199,16 +199,16 @@ final class SessionManager: ObservableObject {
         states[id] = nil
 
         if markers.authFailed {
-            failure = Failure(connectionID: id, title: "無法登入 \(name)",
-                              message: "使用者名稱或密碼錯誤，或帳號被限制登入。", logURL: log, wrongPassword: true)
+            failure = Failure(connectionID: id, title: String(localized: "Couldn't sign in to \(name)"),
+                              message: String(localized: "The user name or password is wrong, or the account isn't allowed to sign in."), logURL: log, wrongPassword: true)
         } else if !wasConnected && status != 0 {
-            var msg = "連線失敗（代碼 \(status)）。"
+            var msg = String(localized: "The connection failed (code \(String(status))).")
             if markers.unreachable {
-                msg = "連不上主機。請確認 IP、埠號、遠端電腦已開啟遠端桌面，並在「系統設定 → 隱私權與安全性 → 區域網路」允許 MacRDP。"
+                msg = String(localized: "Can't reach the PC. Check the address and port, that Remote Desktop is on, and that MacRDP is allowed in System Settings → Privacy & Security → Local Network.")
             } else if markers.certificateError {
-                msg = "憑證驗證失敗。可在連線設定的「安全性」改成「第一次連線時信任並記住」。"
+                msg = String(localized: "The certificate couldn't be verified. Under Advanced → Server certificate, choose \"Trust and remember on first connection\".")
             }
-            failure = Failure(connectionID: id, title: "無法連線到 \(name)", message: msg, logURL: log, wrongPassword: false)
+            failure = Failure(connectionID: id, title: String(localized: "Couldn't connect to \(name)"), message: msg, logURL: log, wrongPassword: false)
         }
     }
 }

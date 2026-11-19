@@ -6,23 +6,7 @@ English | [繁體中文](README.zh-TW.md)
 
 MacRDP looks and works like Windows App (saved PCs, groups, the same per-PC settings), but it exposes the performance options Windows App keeps hidden: **UDP transport**, **H.264 AVC444**, and **uncapped frame rate**. Together with a few Windows-side tweaks, a 1080p desktop that Windows caps at about 30 fps runs at **75+ fps** on a LAN.
 
-## How it differs from Windows App
-
-| | Windows App (Microsoft) | MacRDP |
-|---|---|---|
-| Transport | Chosen automatically | **UDP preferred or TCP only**, per PC |
-| Graphics codec | Chosen automatically | **AVC444 / AVC420 / RemoteFX / Progressive / legacy**, per PC |
-| Frame pacing | Waits for each frame to be acknowledged | **Optional uncapped frame rate** (`frame-ack:0`) |
-| Windows-side tuning | Not documented | **One-click script** to lift the 30 fps cap and turn on H.264, UDP and GPU encoding |
-| Clipboard | On or off | **Separate direction for text/images and for files** (both / to remote / to Mac / off) |
-| Full screen | Native | Native: every session gets its own Space, so you can swipe between them |
-| Extras | — | `.rdp` import/export, `--connect` command line (Shortcuts, Alfred, Raycast), custom FreeRDP arguments |
-| Source | Closed | **Open source** (Apache-2.0), built on [FreeRDP 3](https://github.com/FreeRDP/FreeRDP) |
-| Azure Virtual Desktop / Windows 365 | Yes | **Not supported**: MacRDP connects to PCs directly or through an RD Gateway |
-| Camera redirection, swap mouse buttons | Yes | **Not supported** (FreeRDP has no macOS support for them) |
-| UI language | Many | Traditional Chinese for now |
-
-### Measured
+## Measured
 
 1920×1080, a full-screen animation on Windows 11 (QEMU VM, no GPU), Mac mini on wired LAN:
 
@@ -53,6 +37,7 @@ On a sub-millisecond LAN, UDP and TCP perform about the same. UDP helps on links
 - Passwords stay in the macOS Keychain and reach FreeRDP through stdin, never in a file or the process list
 - Open `.rdp` files from Finder, or import and export them
 - `MacRDP.app/Contents/MacOS/MacRDP --connect "<name or host>"` connects straight away
+- English interface, with Traditional Chinese when macOS is set to it
 
 ## Download
 
@@ -118,20 +103,6 @@ open build/MacRDP.app
 
 **Why the local relay?** macOS grants Local Network access per executable, and a self-built `sdl-freerdp` is denied silently, without a prompt (`Couldn't get socket ip address`). So FreeRDP connects to `127.0.0.1` and MacRDP forwards TCP and UDP to the real host. You can turn this off in Settings; sessions through an RD Gateway don't use it.
 
-### Release (sign, notarize, DMG)
-
-```bash
-scripts/release.sh
-```
-
-This builds `build/MacRDP-<version>.dmg`: signed with Developer ID and the hardened runtime, notarized by Apple, and stapled. It needs a "Developer ID Application" certificate and notarization credentials saved once (create an app-specific password at [account.apple.com](https://account.apple.com) → Sign-In and Security):
-
-```bash
-xcrun notarytool store-credentials macrdp-notary --apple-id <Apple ID> --team-id <Team ID> --password <app-specific password>
-```
-
-`SKIP_NOTARIZE=1` signs without notarizing; `NOTARY_PROFILE=<name>` uses another saved profile. The version number lives in `VERSION`.
-
 ## Project layout
 
 ```
@@ -143,7 +114,7 @@ Sources/MacRDP/
   Session/LocalRelay.swift      TCP + UDP relay on 127.0.0.1
   Views/                        main window, PC editor, password prompt
   SelfTest.swift                `--self-test` checks
-Resources/                      app icon (AppIcon.icns, made by scripts/make-icon.swift from icon-source.png)
+Resources/                      app icon, en.lproj / zh-Hant.lproj translations
 patches/                        FreeRDP patches (native full screen, flicker-free start)
 scripts/                        build-freerdp.sh, build-app.sh, bundle-dylibs.sh, release.sh, make-icon.swift
 tools/                          windows-setup.ps1, fps-test.html

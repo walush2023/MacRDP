@@ -6,23 +6,7 @@
 
 MacRDP 的用法和 Windows App 一樣（儲存電腦、群組、相同的每台電腦設定），但把 Windows App 藏起來的效能選項開放出來：**UDP 傳輸**、**H.264 AVC444**、**不限幀率**。搭配幾項 Windows 端設定，原本被 Windows 鎖在約 30 fps 的 1080p 桌面，在區域網路上可以跑到 **75 fps 以上**。
 
-## 和 Windows App 的差別
-
-| | Windows App（Microsoft） | MacRDP |
-|---|---|---|
-| 傳輸方式 | 自動選擇 | **每台電腦可選 UDP 優先或只用 TCP** |
-| 影像編碼 | 自動選擇 | **每台電腦可選 AVC444 / AVC420 / RemoteFX / Progressive / 傳統點陣圖** |
-| 幀率 | 每一幀都等伺服器確認 | **可選不限幀率**（`frame-ack:0`） |
-| Windows 端調校 | 沒有說明 | **一鍵腳本**：解除 30 fps 上限，開啟 H.264、UDP、GPU 編碼 |
-| 剪貼簿 | 開或關 | **文字圖片和檔案可分別設定方向**（雙向 / 只到遠端 / 只到 Mac / 關閉） |
-| 全螢幕 | 原生 | 原生：每個連線有自己的 Space，可以滑動切換 |
-| 其他 | — | `.rdp` 匯入匯出、`--connect` 指令列（可接 Shortcuts、Alfred、Raycast）、自訂 FreeRDP 參數 |
-| 原始碼 | 不公開 | **開源**（Apache-2.0），以 [FreeRDP 3](https://github.com/FreeRDP/FreeRDP) 為核心 |
-| Azure Virtual Desktop / Windows 365 | 支援 | **不支援**：MacRDP 直接連線到電腦，或經過 RD Gateway |
-| 攝影機重新導向、交換滑鼠左右鍵 | 支援 | **不支援**（FreeRDP 在 macOS 上沒有這些功能） |
-| 介面語言 | 多國語言 | 目前只有繁體中文 |
-
-### 實測
+## 實測
 
 1920×1080，Windows 11（QEMU 虛擬機、無 GPU）全螢幕播放動畫，Mac mini 有線區域網路：
 
@@ -53,6 +37,7 @@ MacRDP 的用法和 Windows App 一樣（儲存電腦、群組、相同的每台
 - 密碼只存在 macOS 鑰匙圈，經由 stdin 傳給 FreeRDP，不會出現在檔案或程序列表裡
 - 可以在 Finder 直接打開 `.rdp` 檔，也能匯入匯出
 - `MacRDP.app/Contents/MacOS/MacRDP --connect "<名稱或主機>"` 直接連線
+- 介面預設英文；macOS 語言設為繁體中文時顯示繁體中文
 
 ## 下載
 
@@ -118,20 +103,6 @@ open build/MacRDP.app
 
 **為什麼要本機轉送？** macOS 的區域網路權限是依執行檔判斷的，自己編譯的 `sdl-freerdp` 不會跳出詢問，而是直接被擋（錯誤是 `Couldn't get socket ip address`）。所以 FreeRDP 連到 `127.0.0.1`，再由 MacRDP 把 TCP 和 UDP 轉送到真正的主機。可以在「設定」關閉；經過 RD Gateway 的連線不使用轉送。
 
-### 發佈（簽章、公證、DMG）
-
-```bash
-scripts/release.sh
-```
-
-產生 `build/MacRDP-<版本>.dmg`：用 Developer ID 簽章並開啟 hardened runtime，送 Apple 公證後把結果附加到 DMG。需要「Developer ID Application」憑證，並先存一次公證帳號（App 專用密碼在 [account.apple.com](https://account.apple.com) →「登入與安全性」建立）：
-
-```bash
-xcrun notarytool store-credentials macrdp-notary --apple-id <Apple ID> --team-id <Team ID> --password <App 專用密碼>
-```
-
-`SKIP_NOTARIZE=1` 只簽章、不公證；`NOTARY_PROFILE=<名稱>` 使用其他已存的帳號設定。版本號在 `VERSION` 檔。
-
 ## 專案結構
 
 ```
@@ -143,7 +114,7 @@ Sources/MacRDP/
   Session/LocalRelay.swift      在 127.0.0.1 轉送 TCP + UDP
   Views/                        主視窗、電腦設定、密碼輸入
   SelfTest.swift                `--self-test` 檢查
-Resources/                      App 圖示（AppIcon.icns，用 scripts/make-icon.swift 從 icon-source.png 產生）
+Resources/                      App 圖示、en.lproj / zh-Hant.lproj 翻譯
 patches/                        FreeRDP 補丁（原生全螢幕、不閃爍的啟動）
 scripts/                        build-freerdp.sh、build-app.sh、bundle-dylibs.sh、release.sh、make-icon.swift
 tools/                          windows-setup.ps1、fps-test.html

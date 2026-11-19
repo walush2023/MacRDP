@@ -118,9 +118,9 @@ enum Resolution: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .matchDisplay: return "與這個顯示器相同（預設）"
-        case .matchWindow: return "與視窗大小相同"
-        case .custom: return "自訂"
+        case .matchDisplay: return String(localized: "Same as this display (default)")
+        case .matchWindow: return String(localized: "Same as window size")
+        case .custom: return String(localized: "Custom")
         default:
             let s = rawValue.dropFirst().split(separator: "x")
             return "\(s[0]) × \(s[1])"
@@ -138,10 +138,10 @@ enum ColorDepth: Int, Codable, CaseIterable, Identifiable {
     var id: Int { rawValue }
     var label: String {
         switch self {
-        case .bits32: return "最高品質（32 位元）"
-        case .bits24: return "全彩（24 位元）"
-        case .bits16: return "高彩（16 位元）"
-        case .bits15: return "高彩（15 位元）"
+        case .bits32: return String(localized: "Highest quality (32-bit)")
+        case .bits24: return String(localized: "True color (24-bit)")
+        case .bits16: return String(localized: "High color (16-bit)")
+        case .bits15: return String(localized: "High color (15-bit)")
         }
     }
 }
@@ -151,19 +151,19 @@ enum ClipboardDirection: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .both: return "雙向"
-        case .toRemote: return "只能從 Mac 複製到遠端"
-        case .toLocal: return "只能從遠端複製到 Mac"
-        case .off: return "關閉"
+        case .both: return String(localized: "Both directions")
+        case .toRemote: return String(localized: "Mac to remote only")
+        case .toLocal: return String(localized: "Remote to Mac only")
+        case .off: return String(localized: "Off")
         }
     }
     /// FreeRDP `direction-to` / `files-to` value.
     var freerdp: String {
         switch self {
-        case .both: return "all"
-        case .toRemote: return "remote"
-        case .toLocal: return "local"
-        case .off: return "off"
+        case .both: return String(localized: "all")
+        case .toRemote: return String(localized: "remote")
+        case .toLocal: return String(localized: "local")
+        case .off: return String(localized: "off")
         }
     }
 }
@@ -173,9 +173,9 @@ enum SoundMode: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .local: return "在這台 Mac 播放"
-        case .remote: return "在遠端電腦播放"
-        case .never: return "不播放"
+        case .local: return String(localized: "On this Mac")
+        case .remote: return String(localized: "On the remote PC")
+        case .never: return String(localized: "Never")
         }
     }
 }
@@ -185,13 +185,13 @@ enum NetworkType: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .auto: return "自動偵測"
-        case .lan: return "區域網路 (LAN)"
+        case .auto: return String(localized: "Detect automatically")
+        case .lan: return String(localized: "LAN")
         case .wan: return "WAN"
-        case .broadbandHigh: return "高速寬頻"
-        case .broadband: return "寬頻"
-        case .broadbandLow: return "低速寬頻"
-        case .modem: return "數據機"
+        case .broadbandHigh: return String(localized: "High-speed broadband")
+        case .broadband: return String(localized: "Broadband")
+        case .broadbandLow: return String(localized: "Low-speed broadband")
+        case .modem: return String(localized: "Modem")
         }
     }
 }
@@ -201,11 +201,11 @@ enum GraphicsCodec: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .avc444: return "H.264 AVC444（全彩，建議）"
-        case .avc420: return "H.264 AVC420（較省頻寬）"
+        case .avc444: return String(localized: "H.264 AVC444 (full color, recommended)")
+        case .avc420: return String(localized: "H.264 AVC420 (less bandwidth)")
         case .progressive: return "RemoteFX Progressive"
         case .remoteFX: return "RemoteFX"
-        case .legacy: return "傳統點陣圖（不使用 GFX）"
+        case .legacy: return String(localized: "Legacy bitmaps (no GFX)")
         }
     }
 }
@@ -215,8 +215,8 @@ enum Transport: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .udpPreferred: return "UDP 優先（TCP 備援）"
-        case .tcpOnly: return "只用 TCP"
+        case .udpPreferred: return String(localized: "UDP preferred (TCP fallback)")
+        case .tcpOnly: return String(localized: "TCP only")
         }
     }
 }
@@ -226,9 +226,9 @@ enum CertificatePolicy: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .trustOnFirstUse: return "第一次連線時信任並記住"
-        case .ignore: return "一律忽略（僅限信任的區域網路）"
-        case .strict: return "嚴格驗證"
+        case .trustOnFirstUse: return String(localized: "Trust and remember on first connection")
+        case .ignore: return String(localized: "Always ignore (trusted LAN only)")
+        case .strict: return String(localized: "Strict")
         }
     }
 }
@@ -238,10 +238,10 @@ enum SecurityMode: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .auto: return "自動協商"
-        case .nla: return "NLA（網路層級驗證）"
+        case .auto: return String(localized: "Negotiate automatically")
+        case .nla: return String(localized: "NLA (Network Level Authentication)")
         case .tls: return "TLS"
-        case .rdp: return "RDP 標準安全性"
+        case .rdp: return String(localized: "Standard RDP security")
         }
     }
 }

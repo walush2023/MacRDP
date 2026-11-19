@@ -37,6 +37,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/MacRDP"
 cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/" 2>/dev/null || true
+cp -R "$ROOT/Resources/"*.lproj "$APP/Contents/Resources/"   # English (default) + Traditional Chinese
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -44,6 +45,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key><string>MacRDP</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key><array><string>en</string><string>zh-Hant</string></array>
   <key>CFBundleDisplayName</key><string>MacRDP</string>
   <key>CFBundleIdentifier</key><string>com.walush.macrdp</string>
   <key>CFBundleExecutable</key><string>MacRDP</string>
